@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
 import { Input } from '@/components/ui/input';
 import { DollarSign, CreditCard, Package, Zap, CheckCircle, Clock, Copy, Eye, EyeOff } from 'lucide-react';
 import { getStripe, TransactionService } from '@/lib/stripe';
+import confetti from 'canvas-confetti';
 
 export const PaymentMessage = ({ 
   paymentData, 
@@ -34,6 +34,52 @@ export const PaymentMessage = ({
   const isBuyer = currentUserId === paymentData.buyerId;
   const isSeller = currentUserId === paymentData.sellerId;
 
+  // Confetti animation functions
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+  };
+
+  const triggerCelebration = () => {
+    // Multiple confetti bursts
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+
+    const randomInRange = (min, max) => {
+      return Math.random() * (max - min) + min;
+    };
+
+    const interval = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({
+        particleCount,
+        startVelocity: 30,
+        spread: 360,
+        origin: {
+          x: randomInRange(0.1, 0.3),
+          y: Math.random() - 0.2
+        }
+      });
+      confetti({
+        particleCount,
+        startVelocity: 30,
+        spread: 360,
+        origin: {
+          x: randomInRange(0.7, 0.9),
+          y: Math.random() - 0.2
+        }
+      });
+    }, 250);
+  };
 
 
   const handlePayment = async () => {
@@ -74,6 +120,9 @@ export const PaymentMessage = ({
         const generatedCode = paymentData.handoffCode;
         setHandoffCode(generatedCode);
         setPaymentStatus('completed');
+        
+        // Trigger confetti for payment completion
+        setTimeout(() => triggerConfetti(), 500);
         
         // Handle digital products differently
         if (paymentData.isDigital) {
@@ -125,6 +174,10 @@ export const PaymentMessage = ({
     if (result.success) {
       setPaymentStatus('verified');
       setShowCodeInput(false);
+      
+      // Trigger celebration confetti for transaction completion
+      setTimeout(() => triggerCelebration(), 500);
+      
       onPaymentComplete && onPaymentComplete({
         ...paymentData,
         status: 'verified'
@@ -289,6 +342,9 @@ export const PaymentMessage = ({
                   </div>
                   <div className="text-xs text-gray-500 mt-2">
                     Give this code to the seller when you meet
+                  </div>
+                  <div className="text-xs text-blue-600 mt-2 bg-blue-50 p-2 rounded border-l-2 border-blue-200">
+                    💰 <strong>Escrow Protection:</strong> Your money is safely held in escrow until the seller enters this handoff code, ensuring secure transactions.
                   </div>
                 </div>
               )}

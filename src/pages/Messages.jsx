@@ -3,7 +3,7 @@ import { MessageService, ProductService, UserService } from "@/lib/firebaseServi
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Send, LogIn, MessageCircle, MoreVertical, Pin, Trash2, Tag as TagIcon, PlusCircle, Circle, X, DollarSign } from "lucide-react";
+import { ArrowLeft, Send, LogIn, MessageCircle, MoreVertical, Pin, Trash2, Tag as TagIcon, PlusCircle, Circle, X, DollarSign, Edit } from "lucide-react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -21,6 +21,8 @@ export default function Messages() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const messageContainerRef = useRef(null);
   
@@ -29,11 +31,14 @@ export default function Messages() {
   const [conversationMetadata, setConversationMetadata] = useState({});
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [showTagDialog, setShowTagDialog] = useState(false);
+  const [showEditTagDialog, setShowEditTagDialog] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#3B82F6");
+  const [editingTag, setEditingTag] = useState(null);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [showPaymentWidget, setShowPaymentWidget] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
+  const [conversationsCache, setConversationsCache] = useState(new Map());
 
 
 
@@ -50,9 +55,20 @@ export default function Messages() {
     const loadUserData = async () => {
       if (user) {
         try {
-          await loadConversations(user.uid);
-          await loadCustomTags(user.uid);
-      } catch (error) {
+          // Load conversations and custom tags in parallel
+          const [conversationsResult, tagsResult] = await Promise.allSettled([
+            loadConversations(user.uid),
+            loadCustomTags(user.uid)
+          ]);
+          
+          // Handle any errors individually
+          if (conversationsResult.status === 'rejected') {
+            console.error("Error loading conversations:", conversationsResult.reason);
+          }
+          if (tagsResult.status === 'rejected') {
+            console.error("Error loading custom tags:", tagsResult.reason);
+          }
+        } catch (error) {
           console.error("Error loading user data:", error);
         }
       }
@@ -82,6 +98,20 @@ export default function Messages() {
 
   const loadConversations = async (userId) => {
     try {
+      setConversationsLoading(true);
+      
+      // Check cache first
+      const cacheKey = `conversations_${userId}`;
+      const cached = conversationsCache.get(cacheKey);
+      const cacheAge = cached ? Date.now() - cached.timestamp : Infinity;
+      
+      // Use cache if it's less than 30 seconds old
+      if (cached && cacheAge < 30000) {
+        setConversations(cached.data);
+        setConversationsLoading(false);
+        return;
+      }
+      
       const convos = await MessageService.getConversations(userId);
       
       // Transform Firebase data to component format
@@ -101,11 +131,19 @@ export default function Messages() {
         isPinned: convo.is_pinned || false
       }));
       
+      // Cache the results
+      setConversationsCache(prev => new Map(prev).set(cacheKey, {
+        data: formattedConversations,
+        timestamp: Date.now()
+      }));
+      
       setConversations(formattedConversations);
     } catch (error) {
       console.error("Error loading conversations:", error);
       // Fallback to empty array on error
       setConversations([]);
+    } finally {
+      setConversationsLoading(false);
     }
   };
 
@@ -121,6 +159,7 @@ export default function Messages() {
 
   const loadMessages = async (conversationId) => {
     try {
+      setMessagesLoading(true);
       const messages = await MessageService.getConversation(conversationId);
       
       // Transform Firebase data to component format
@@ -141,6 +180,8 @@ export default function Messages() {
     } catch (error) {
       console.error("Error loading messages:", error);
       setMessages([]);
+    } finally {
+      setMessagesLoading(false);
     }
   };
 
@@ -254,14 +295,65 @@ export default function Messages() {
     setShowTagDialog(false);
   };
 
+  const editCustomTag = async () => {
+    if (!editingTag || !editingTag.name.trim()) return;
+    
+    const updatedTags = customTags.map(tag => 
+      tag.id === editingTag.id 
+        ? { ...tag, name: editingTag.name.trim(), color: editingTag.color }
+        : tag
+    );
+    
+    setCustomTags(updatedTags);
+    
+    // Save to Firebase
+    try {
+      await UserService.updateProfile(user.uid, { custom_tags: updatedTags });
+    } catch (error) {
+      console.error("Error updating custom tag:", error);
+    }
+    
+    setEditingTag(null);
+    setShowEditTagDialog(false);
+  };
+
+  const deleteCustomTag = async (tagId) => {
+    const updatedTags = customTags.filter(tag => tag.id !== tagId);
+    setCustomTags(updatedTags);
+    
+    // Remove tag from all conversations that use it
+    const updatedMetadata = { ...conversationMetadata };
+    Object.keys(updatedMetadata).forEach(conversationId => {
+      if (updatedMetadata[conversationId]?.tagId === tagId) {
+        delete updatedMetadata[conversationId].tagId;
+      }
+    });
+    setConversationMetadata(updatedMetadata);
+    
+    // Save to Firebase
+    try {
+      await UserService.updateProfile(user.uid, { 
+        custom_tags: updatedTags,
+        conversation_metadata: updatedMetadata
+      });
+    } catch (error) {
+      console.error("Error deleting custom tag:", error);
+    }
+  };
+
   const applyTagToConversation = async (conversationId, tagId) => {
     const updatedMetadata = {
       ...conversationMetadata,
       [conversationId]: {
         ...conversationMetadata[conversationId],
-        tagId
+        tagId: tagId || null
       }
     };
+    
+    // If tagId is null, remove the tagId property entirely
+    if (!tagId) {
+      delete updatedMetadata[conversationId].tagId;
+    }
     
     setConversationMetadata(updatedMetadata);
     
@@ -531,7 +623,21 @@ export default function Messages() {
         <div ref={messageContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           <p className="text-gray-500 text-sm mb-4">You're chatting about "{activeConversation.productTitle}"</p>
           
-          {messages.map((message) => {
+          {messagesLoading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-xs px-4 py-3 rounded-2xl shadow-sm animate-pulse ${
+                    i % 2 === 0 ? 'bg-gray-200' : 'bg-gray-300'
+                  }`}>
+                    <div className="h-4 bg-gray-300 rounded w-32 mb-2"></div>
+                    <div className="h-3 bg-gray-300 rounded w-16"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+          messages.map((message) => {
             // Handle system messages differently
             if (message.message_type === 'system_terminated') {
               return (
@@ -577,7 +683,7 @@ export default function Messages() {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
 
         <div className="flex-shrink-0 p-4 border-t border-border bg-card">
@@ -718,6 +824,67 @@ export default function Messages() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Tag Dialog */}
+        <Dialog open={showEditTagDialog} onOpenChange={setShowEditTagDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Custom Tag</DialogTitle>
+              <DialogDescription>
+                Update your custom tag name and color.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="editTagName">Tag Name</Label>
+                <Input
+                  id="editTagName"
+                  value={editingTag?.name || ""}
+                  onChange={(e) => setEditingTag(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Interested Seller"
+                  maxLength={20}
+                />
+              </div>
+              <div>
+                <Label>Color</Label>
+                <div className="flex gap-2 mt-2">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color.value}
+                      onClick={() => setEditingTag(prev => ({ ...prev, color: color.value }))}
+                      className={`w-8 h-8 rounded-full border-2 ${editingTag?.color === color.value ? 'border-gray-800' : 'border-gray-300'}`}
+                      style={{ backgroundColor: color.value }}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => {
+                  if (window.confirm(`Are you sure you want to delete the tag "${editingTag?.name}"? This will remove it from all conversations.`)) {
+                    deleteCustomTag(editingTag?.id);
+                    setShowEditTagDialog(false);
+                  }
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Tag
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowEditTagDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={editCustomTag} disabled={!editingTag?.name?.trim()}>
+                  Update Tag
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {customTags.length > 0 && (
@@ -725,8 +892,12 @@ export default function Messages() {
           {customTags.map((tag) => (
             <div
               key={tag.id}
-              className="flex items-center gap-1 px-3 py-1 rounded-full text-sm text-white"
+              className="flex items-center gap-1 px-3 py-1 rounded-full text-sm text-white cursor-pointer hover:opacity-80 transition-opacity"
               style={{ backgroundColor: tag.color }}
+              onClick={() => {
+                setEditingTag(tag);
+                setShowEditTagDialog(true);
+              }}
             >
               <Circle className="w-3 h-3 fill-current" />
               {tag.name}
@@ -736,7 +907,19 @@ export default function Messages() {
       )}
 
       <div className="space-y-2">
-        {conversations.length === 0 ? (
+        {conversationsLoading ? (
+          <div className="space-y-2">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-center p-4 bg-card rounded-lg border border-border animate-pulse">
+                <div className="w-12 h-12 rounded-full bg-gray-200 mr-4"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : conversations.length === 0 ? (
           <div className="text-center py-12">
             <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No messages yet</h3>
@@ -841,21 +1024,33 @@ export default function Messages() {
                       {conversationMetadata[conversation.id]?.isPinned ? 'Unpin' : 'Pin'} Conversation
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                    {customTags.map((tag) => (
+                    {conversationTag ? (
                       <DropdownMenuItem
-                        key={tag.id}
                         onClick={(e) => {
                           e.stopPropagation();
-                          applyTagToConversation(conversation.id, tag.id);
+                          applyTagToConversation(conversation.id, null);
                         }}
                       >
-                        <div
-                          className="w-3 h-3 rounded-full mr-2"
-                          style={{ backgroundColor: tag.color }}
-                        />
-                        Tag as {tag.name}
-                          </DropdownMenuItem>
-                        ))}
+                        <X className="w-4 h-4 mr-2" />
+                        Remove Tag
+                      </DropdownMenuItem>
+                    ) : (
+                      customTags.map((tag) => (
+                        <DropdownMenuItem
+                          key={tag.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            applyTagToConversation(conversation.id, tag.id);
+                          }}
+                        >
+                          <div
+                            className="w-3 h-3 rounded-full mr-2"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          Tag as {tag.name}
+                        </DropdownMenuItem>
+                      ))
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       className="text-orange-600"

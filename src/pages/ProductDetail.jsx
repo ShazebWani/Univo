@@ -5,7 +5,7 @@ import { ProductService, UserService, MessageService } from "@/lib/firebaseServi
 import { useAuth } from "@/contexts/AuthContext";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Star, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, MapPin, MessageCircle, Share2 } from "lucide-react";
 
 export default function ProductDetail() {
   const navigate = useNavigate();
@@ -212,10 +212,7 @@ export default function ProductDetail() {
                     {seller.displayName || seller.full_name || 'Anonymous'}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                    <span>{seller.rating?.toFixed(1) || '5.0'}</span>
-                    <span>•</span>
-                    <span>{seller.total_sales || 0} sales</span>
+                    <span>{seller.actual_sales || seller.total_sales || 0} sales</span>
                     </div>
                     {(seller.school || seller.university) && (
                     <p className="text-sm text-gray-500">{seller.school || seller.university}</p>

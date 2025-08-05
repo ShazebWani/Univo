@@ -111,11 +111,40 @@ app.post('/api/payments/confirm', async (req, res) => {
       payment_method: payment_method_id
     });
 
-    await admin.firestore().collection('transactions').doc(payment_intent_id).update({
+    const transactionRef = admin.firestore().collection('transactions').doc(payment_intent_id);
+    const transactionDoc = await transactionRef.get();
+    const transaction = transactionDoc.data();
+
+    await transactionRef.update({
       status: paymentIntent.status === 'succeeded' ? 'paid' : 'failed',
       payment_method_id,
       confirmed_at: admin.firestore.FieldValue.serverTimestamp()
     });
+
+    // For digital products, update sales count and mark product as sold immediately
+    if (paymentIntent.status === 'succeeded' && transaction?.is_digital) {
+      try {
+        // Update seller's sales count
+        const sellerRef = admin.firestore().collection('users').doc(transaction.seller_id);
+        await sellerRef.update({
+          total_sales: admin.firestore.FieldValue.increment(1)
+        });
+        console.log('✅ Digital product seller sales count updated:', transaction.seller_id);
+
+        // Mark the product as sold
+        if (transaction.product_id) {
+          const productRef = admin.firestore().collection('products').doc(transaction.product_id);
+          await productRef.update({
+            status: 'sold',
+            sold_at: admin.firestore.FieldValue.serverTimestamp(),
+            sold_to: transaction.buyer_id
+          });
+          console.log('✅ Digital product marked as sold:', transaction.product_id);
+        }
+      } catch (error) {
+        console.error('❌ Error updating digital product completion:', error);
+      }
+    }
 
     res.json({
       success: paymentIntent.status === 'succeeded',
@@ -181,6 +210,17 @@ app.post('/api/payments/verify-handoff', async (req, res) => {
       } catch (error) {
         console.error('❌ Error marking product as sold:', error);
       }
+    }
+
+    // Update seller's sales count
+    try {
+      const sellerRef = admin.firestore().collection('users').doc(seller_id);
+      await sellerRef.update({
+        total_sales: admin.firestore.FieldValue.increment(1)
+      });
+      console.log('✅ Seller sales count updated:', seller_id);
+    } catch (error) {
+      console.error('❌ Error updating seller sales count:', error);
     }
 
     console.log('✅ Handoff verification successful:', transaction_id);

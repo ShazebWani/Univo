@@ -7,7 +7,6 @@ import { Sparkles, TrendingUp, ShoppingCart } from "lucide-react";
 import { isRecentlyListed } from "@/utils/dateUtils";
 import { useSchoolTheme } from "@/contexts/SchoolThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
-import bannerImage from "@/assets/banner.jpg";
 
 
 
@@ -115,27 +114,19 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden" style={{ backgroundImage: `url(${bannerImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <div className="absolute inset-0 bg-black/40"></div>
-        <div className="relative max-w-7xl mx-auto py-24 px-4 sm:py-32 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
-              <span className="block">Univo</span>
-              <span className="block" style={{ color: currentTheme.primaryColor }}>
-                Your Campus Marketplace
-              </span>
-            </h1>
-            <p className="mt-6 max-w-lg mx-auto text-xl text-white/90 sm:max-w-3xl">
-              Buy and sell with fellow students at {currentTheme.name}. From textbooks to electronics, find what you need or sell what you don't.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-8">
+          {/* Categories Section - Now at the top */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <ShoppingCart className="w-5 h-5" style={{ color: currentTheme.primaryColor }} />
+              <h2 className="text-lg font-semibold text-foreground">Categories</h2>
+              <div className="flex-1 h-px bg-secondary/20 ml-4"></div>
+            </div>
+            <CategoryGrid />
+          </section>
+
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-5 h-5" style={{ color: currentTheme.primaryColor }} />
@@ -172,14 +163,6 @@ export default function Home() {
                 <div className="text-sm text-gray-500">No recent listings found.</div>
               )}
             </div>
-          </section>
-
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <ShoppingCart className="w-5 h-5" style={{ color: currentTheme.primaryColor }} />
-              <h2 className="text-lg font-semibold text-foreground">Categories</h2>
-            </div>
-            <CategoryGrid />
           </section>
         </div>
       </div>

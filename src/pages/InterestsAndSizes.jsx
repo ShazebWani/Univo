@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserService } from "@/lib/firebaseServices";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +14,7 @@ const interestsList = [
 
 export default function InterestsAndSizes() {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedInterests, setSelectedInterests] = useState([]);
@@ -21,9 +23,14 @@ export default function InterestsAndSizes() {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const user = await User.me();
-        setSelectedInterests(user.interests || []);
-        setSizes(user.sizes || { tops: "", bottoms: "", shoes: "" });
+        if (!authUser) {
+          setLoading(false);
+          return;
+        }
+
+        const userData = await UserService.getProfile(authUser.uid);
+        setSelectedInterests(userData?.interests || []);
+        setSizes(userData?.sizes || { tops: "", bottoms: "", shoes: "" });
       } catch (error) {
         console.error("Error loading user data:", error);
       } finally {
@@ -31,7 +38,7 @@ export default function InterestsAndSizes() {
       }
     };
     loadUserData();
-  }, []);
+  }, [authUser]);
 
   const handleInterestToggle = (interest) => {
     setSelectedInterests(prev =>
@@ -48,7 +55,7 @@ export default function InterestsAndSizes() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await User.updateMyUserData({ interests: selectedInterests, sizes: sizes });
+              await UserService.updateProfile(authUser.uid, { interests: selectedInterests, sizes: sizes });
       alert("Saved successfully!");
       navigate(-1);
     } catch (error) {

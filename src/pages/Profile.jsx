@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, MapPin, Edit, Settings, LogOut, MoreVertical, Trash2, Camera } from "lucide-react";
+import { MapPin, Edit, Settings, LogOut, MoreVertical, Trash2, Camera } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ProductCard from "../components/ProductCard";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +29,9 @@ export default function Profile() {
     const filtered = userProducts.filter(p => activeTab === 'sold' ? p.status === 'sold' : p.status !== 'sold');
     setFilteredProducts(filtered);
   }, [activeTab, userProducts]);
+
+  // Calculate actual sales count from sold products
+  const actualSalesCount = userProducts.filter(p => p.status === 'sold').length;
 
   useEffect(() => {
     // Load profile when component mounts or authUser changes
@@ -184,10 +187,7 @@ export default function Profile() {
                 {user.displayName || user.full_name || 'Anonymous User'}
               </h1>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                <span>{user.rating?.toFixed(1) || '5.0'}</span>
-                <span>•</span>
-                <span>{user.total_sales || 0} sales</span>
+                <span>{actualSalesCount} sales</span>
               </div>
               {(user.school || user.university) && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">

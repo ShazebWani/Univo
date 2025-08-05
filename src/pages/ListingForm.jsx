@@ -103,7 +103,9 @@ export default function ListingForm() {
     { value: "courses", label: "🎓 Online Courses" },
     { value: "templates", label: "📄 Templates & Documents" },
     { value: "game_items", label: "🎮 Game Items/Accounts" },
-    { value: "subscriptions", label: "🔐 Subscription Access" }
+    { value: "subscriptions", label: "🔐 Subscription Access" },
+    { value: "tickets", label: "🎫 Event Tickets" },
+    { value: "events", label: "📅 Events & Experiences" }
   ];
 
   const ticketTypes = [

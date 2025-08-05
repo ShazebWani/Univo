@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserService } from "@/lib/firebaseServices";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft } from "lucide-react";
 
 export default function Preferences() {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState({
@@ -18,8 +20,13 @@ export default function Preferences() {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const user = await User.me();
-        setPreferences(user.preferences || {
+        if (!authUser) {
+          setLoading(false);
+          return;
+        }
+
+        const userData = await UserService.getProfile(authUser.uid);
+        setPreferences(userData?.preferences || {
           emailNotifications: true,
           pushNotifications: true,
           marketingEmails: false,
@@ -31,7 +38,7 @@ export default function Preferences() {
       }
     };
     loadUserData();
-  }, []);
+  }, [authUser]);
 
   const handlePrefChange = (key, value) => {
     setPreferences(prev => ({ ...prev, [key]: value }));
@@ -40,7 +47,7 @@ export default function Preferences() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await User.updateMyUserData({ preferences });
+              await UserService.updateProfile(authUser.uid, { preferences });
       alert("Preferences saved successfully!");
       navigate(-1);
     } catch (error) {

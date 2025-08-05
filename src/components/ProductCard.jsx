@@ -2,7 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { MapPin, Star } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 export default function ProductCard({ product, seller }) {
   const formatPrice = (price) => {
@@ -29,8 +29,8 @@ export default function ProductCard({ product, seller }) {
   return (
     <Link to={product.status === 'sold' ? '#' : createPageUrl(`ProductDetail?id=${product.id}`)} 
           onClick={product.status === 'sold' ? (e) => e.preventDefault() : undefined}>
-      <div className={`bg-card p-3 rounded-xl shadow-md transition-all duration-300 h-full flex flex-col ${product.status !== 'sold' ? 'hover:shadow-lg' : 'opacity-75'}`}>
-        <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-gray-100 relative">
+      <div className={`bg-card p-2 rounded-xl shadow-md transition-all duration-300 h-full flex flex-col ${product.status !== 'sold' ? 'hover:shadow-lg' : 'opacity-75'}`}>
+        <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-gray-100 relative">
           {product.status === 'sold' && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
               <div className="bg-red-500 text-white text-sm font-semibold px-3 py-1 rounded-full shadow-md">
@@ -56,23 +56,23 @@ export default function ProductCard({ product, seller }) {
           )}
         </div>
         
-        <div className="space-y-2 flex-grow flex flex-col justify-between">
+        <div className="space-y-1 flex-grow flex flex-col justify-between">
           <div>
-            <h3 className="font-semibold text-foreground line-clamp-2 text-sm mb-2">
+            <h3 className="font-semibold text-foreground line-clamp-2 text-sm mb-1">
               {product.title}
             </h3>
             
             <div className="flex items-center justify-between">
-              <span className={`text-lg font-bold ${product.status === 'sold' ? 'text-red-500' : 'text-primary'}`}>
+              <span className={`text-base font-bold ${product.status === 'sold' ? 'text-red-500' : 'text-primary'}`}>
                 {product.status === 'sold' ? 'SOLD' : formatPrice(product.price)}
               </span>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+              <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
                 {product.condition}
               </span>
             </div>
             
             {product.location && (
-              <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+              <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
                 <MapPin className="w-3 h-3" />
                 {product.location}
               </div>
@@ -80,22 +80,19 @@ export default function ProductCard({ product, seller }) {
           </div>
           
           {seller && (
-            <div className="flex items-center gap-2 pt-2 border-t border-gray-100 mt-2">
+            <div className="flex items-center gap-2 pt-1 border-t border-gray-100 mt-1">
               <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                 {seller.profile_image ? (
                   <img src={seller.profile_image} alt={seller.full_name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-xs font-medium">
-                    {seller.full_name?.charAt(0) || 'U'}
+                    {(seller.displayName || seller.full_name)?.charAt(0) || 'U'}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1">
-                <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                <span className="text-xs text-gray-600">
-                  {seller.rating?.toFixed(1) || '5.0'}
-                </span>
-              </div>
+              <span className="text-xs text-gray-600 font-medium">
+                {seller.displayName || seller.full_name || 'Anonymous'}
+              </span>
             </div>
           )}
         </div>

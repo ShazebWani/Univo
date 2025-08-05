@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Home, Search, MessageCircle, User, Plus, LogOut } from "lucide-react";
+import { Home, Search, MessageCircle, User, Plus, LogOut, Settings } from "lucide-react";
 import { useMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchoolTheme } from "@/contexts/SchoolThemeContext";
@@ -87,10 +87,12 @@ export default function Layout({ children, currentPageName }) {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between h-12">
             <Link to={createPageUrl("Home")} className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center overflow-hidden">
-                <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">U</span>
-                </div>
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center overflow-hidden p-1">
+                <img 
+                  src="/src/assets/Univo-Logo.png" 
+                  alt="Univo Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <span className="text-xl font-bold text-white">Univo</span>
             </Link>
@@ -129,7 +131,7 @@ export default function Layout({ children, currentPageName }) {
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to={createPageUrl("AccountSettings")}>
-                        <User className="mr-2 h-4 w-4" />
+                        <Settings className="mr-2 h-4 w-4" />
                         <span>Settings</span>
                       </Link>
                     </DropdownMenuItem>

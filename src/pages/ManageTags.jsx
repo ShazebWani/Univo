@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserService } from "@/lib/firebaseServices";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft } from "lucide-react";
@@ -10,6 +11,7 @@ const initialTagColors = ["red", "blue", "green"];
 
 export default function ManageTags() {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tags, setTags] = useState([]);
@@ -17,15 +19,24 @@ export default function ManageTags() {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const user = await User.me();
-        const existingTags = user.custom_tags || [];
+        if (!authUser) {
+          setLoading(false);
+          return;
+        }
+
+        const userData = await UserService.getProfile(authUser.uid);
+        const existingTags = userData?.custom_tags || [];
         
         // Create a full list of 3 tags, using existing ones and padding with defaults
         const displayTags = Array(3).fill(null).map((_, index) => {
           if (existingTags[index]) {
             return existingTags[index];
           }
-          return { name: "", color: initialTagColors[index] };
+          return { 
+            id: `tag_${Date.now()}_${index}`,
+            name: "", 
+            color: `#${['EF4444', '3B82F6', '10B981'][index]}` // Red, Blue, Green
+          };
         });
 
         setTags(displayTags);
@@ -36,7 +47,7 @@ export default function ManageTags() {
       }
     };
     loadUserData();
-  }, []);
+  }, [authUser]);
 
   const handleTagNameChange = (index, newName) => {
     setTags(prev => 
@@ -47,8 +58,14 @@ export default function ManageTags() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const tagsToSave = tags.filter(t => t.name && t.name.trim() !== "");
-      await User.updateMyUserData({ custom_tags: tagsToSave });
+      if (!authUser) return;
+      
+      const tagsToSave = tags.filter(t => t.name && t.name.trim() !== "").map(tag => ({
+        ...tag,
+        name: tag.name.trim()
+      }));
+      
+      await UserService.updateProfile(authUser.uid, { custom_tags: tagsToSave });
       alert("Tags saved successfully!");
       navigate(-1);
     } catch (error) {
@@ -82,7 +99,10 @@ export default function ManageTags() {
           <div className="space-y-4">
             {tags.map((tag, index) => (
               <div key={index} className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full bg-${tag.color}-500 flex-shrink-0`}></div>
+                <div 
+                  className="w-6 h-6 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: tag.color }}
+                ></div>
                 <Input
                   placeholder={`Tag ${index + 1} Name (e.g., Urgent)`}
                   value={tag.name}

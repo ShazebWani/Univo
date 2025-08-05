@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserService, ProductService } from "@/lib/firebaseServices";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -15,6 +16,7 @@ const boostOptions = [
 
 export default function BoostItem() {
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [userProducts, setUserProducts] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -23,8 +25,19 @@ export default function BoostItem() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const user = await User.me();
-        const products = await Product.filter({ seller_id: user.id, status: "available" });
+        if (!authUser) {
+          setLoading(false);
+          return;
+        }
+
+        const userSchoolDomain = authUser?.email?.split('@')[1]?.toLowerCase();
+        const filter = { 
+          seller_id: authUser.uid, 
+          status: "available",
+          ...(userSchoolDomain && { seller_school_domain: userSchoolDomain })
+        };
+        
+        const products = await ProductService.list(filter, "-created_date");
         setUserProducts(products);
       } catch (error) {
         console.error("Error loading products:", error);
@@ -33,7 +46,7 @@ export default function BoostItem() {
       }
     };
     loadProducts();
-  }, []);
+  }, [authUser]);
 
   const handleBoost = () => {
     if (!selectedProductId) {

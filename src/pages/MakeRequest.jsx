@@ -19,7 +19,7 @@ export default function MakeRequest() {
     if (productId) {
       const loadProduct = async () => {
         try {
-          const fetchedProduct = await Product.get(productId);
+          const fetchedProduct = await ProductService.get(productId);
           setProduct(fetchedProduct);
         } catch (error) {
           console.error("Error loading product:", error);

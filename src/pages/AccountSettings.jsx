@@ -4,7 +4,7 @@ import { createPageUrl } from "@/utils";
 import { UserService } from "@/lib/firebaseServices";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ChevronRight, CreditCard, UserCircle, Heart, CheckSquare, Shield, Zap, AlertTriangle, LifeBuoy, HelpCircle, Globe, LogOut, LogIn, Tag } from "lucide-react";
+import { ArrowLeft, ChevronRight, CreditCard, UserCircle, Heart, CheckSquare, Shield, Zap, AlertTriangle, LifeBuoy, HelpCircle, Globe, LogOut, LogIn } from "lucide-react";
 
 const SettingsItem = ({ icon: Icon, text, subtext, to, onClick }) => {
   const content = (
@@ -93,7 +93,7 @@ export default function AccountSettings() {
         {/* Payouts */}
         <SectionTitle>Payouts</SectionTitle>
         <div className="bg-card rounded-xl p-2">
-          <SettingsItem icon={CreditCard} text="Univo balance" subtext="$0.00" to={createPageUrl("Payouts")} />
+          <SettingsItem icon={CreditCard} text="Univo balance" subtext={`$${(user?.balance || 0).toFixed(2)}`} to={createPageUrl("Payouts")} />
         </div>
 
         {/* My Account */}
@@ -101,7 +101,6 @@ export default function AccountSettings() {
         <div className="bg-card rounded-xl p-2">
           <SettingsItem icon={UserCircle} text="Profile" to={createPageUrl("Profile")} />
           <SettingsItem icon={Heart} text="Interests and sizes" to={createPageUrl("InterestsAndSizes")} />
-          <SettingsItem icon={Tag} text="Conversation Tags" to={createPageUrl("ManageTags")} />
           <SettingsItem icon={CheckSquare} text="Preferences" to={createPageUrl("Preferences")} />
           <SettingsItem icon={Shield} text="Privacy" subtext="Coming Later" onClick={() => {}} />
         </div>

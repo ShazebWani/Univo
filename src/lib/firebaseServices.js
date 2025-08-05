@@ -263,7 +263,7 @@ export const MessageService = {
     }
   },
   
-  // Get user conversations with enhanced data
+  // Get user conversations with enhanced data (optimized with batch loading)
   getConversations: async (userId) => {
     try {
       const q = query(
@@ -275,30 +275,66 @@ export const MessageService = {
       const querySnapshot = await getDocs(q);
       const conversations = [];
       
-      for (const docSnap of querySnapshot.docs) {
+      // Collect all unique user IDs and product IDs for batch loading
+      const userIds = new Set();
+      const productIds = new Set();
+      
+      const conversationDataList = querySnapshot.docs.map(docSnap => {
         const conversationData = { id: docSnap.id, ...docSnap.data() };
         
-        // Get the other participant's info
+        // Collect user IDs
         const otherUserId = conversationData.participants.find(id => id !== userId);
         if (otherUserId) {
-          try {
-            const otherUser = await UserService.get(otherUserId);
-            conversationData.otherUser = otherUser;
-          } catch (error) {
-            console.error('Error fetching other user:', error);
-            conversationData.otherUser = { displayName: 'Unknown User' };
-          }
+          userIds.add(otherUserId);
         }
         
-        // Get product info if available
+        // Collect product IDs
         if (conversationData.product_id) {
+          productIds.add(conversationData.product_id);
+        }
+        
+        return conversationData;
+      });
+      
+      // Batch load users
+      const usersData = {};
+      if (userIds.size > 0) {
+        const userPromises = Array.from(userIds).map(async (uid) => {
           try {
-            const product = await ProductService.get(conversationData.product_id);
-            conversationData.product = product;
+            const userData = await UserService.get(uid);
+            usersData[uid] = userData;
           } catch (error) {
-            console.error('Error fetching product:', error);
-            conversationData.product = { title: 'Unknown Product' };
+            console.error('Error fetching user:', uid, error);
+            usersData[uid] = { displayName: 'Unknown User' };
           }
+        });
+        await Promise.all(userPromises);
+      }
+      
+      // Batch load products
+      const productsData = {};
+      if (productIds.size > 0) {
+        const productPromises = Array.from(productIds).map(async (pid) => {
+          try {
+            const productData = await ProductService.get(pid);
+            productsData[pid] = productData;
+          } catch (error) {
+            console.error('Error fetching product:', pid, error);
+            productsData[pid] = { title: 'Unknown Product' };
+          }
+        });
+        await Promise.all(productPromises);
+      }
+      
+      // Attach user and product data to conversations
+      for (const conversationData of conversationDataList) {
+        const otherUserId = conversationData.participants.find(id => id !== userId);
+        if (otherUserId && usersData[otherUserId]) {
+          conversationData.otherUser = usersData[otherUserId];
+        }
+        
+        if (conversationData.product_id && productsData[conversationData.product_id]) {
+          conversationData.product = productsData[conversationData.product_id];
         }
         
         conversations.push(conversationData);

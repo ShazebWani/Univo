@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { UserService, ProductService } from "@/lib/firebaseServices";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Star, MapPin, ShoppingBag } from "lucide-react";
+import { ArrowLeft, MapPin, ShoppingBag } from "lucide-react";
 import ProductCard from "../components/ProductCard";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -47,14 +47,20 @@ export default function UserProfile() {
       
       setUser(userData);
       
-      // Only show available products for public profiles, filtered by school
-      const filter = { 
-        seller_id: userId, 
-        status: "available",
+      // Load all products to calculate sales count, but only show available ones
+      const allProductsFilter = { 
+        seller_id: userId,
         ...(currentUserSchoolDomain && { seller_school_domain: currentUserSchoolDomain })
       };
-      const products = await ProductService.list(filter, "-created_date");
-      setUserProducts(products);
+      const allProducts = await ProductService.list(allProductsFilter, "-created_date");
+      
+      // Only show available products for public profiles
+      const availableProducts = allProducts.filter(p => p.status === "available");
+      setUserProducts(availableProducts);
+      
+      // Update user data with actual sales count
+      const actualSalesCount = allProducts.filter(p => p.status === 'sold').length;
+      setUser(prev => ({ ...prev, actual_sales: actualSalesCount }));
     } catch (error) {
       console.error("Error loading user profile:", error);
       navigate(createPageUrl("Home"));
@@ -119,11 +125,8 @@ export default function UserProfile() {
               {user.full_name || 'Anonymous User'}
             </h1>
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <span>{user.rating?.toFixed(1) || '5.0'}</span>
-              <span>•</span>
               <ShoppingBag className="w-4 h-4"/>
-              <span>{user.total_sales || 0} sales</span>
+              <span>{user.actual_sales || 0} sales</span>
             </div>
             {user.university && (
               <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
